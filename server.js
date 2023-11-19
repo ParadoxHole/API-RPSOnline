@@ -1,20 +1,15 @@
-const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
+const express = require("express");
+const bodyParser = require("body-parser");
+const cors = require("cors");
 const app = express();
-
-require("./app/models/db.js");
-
 global.__basedir = __dirname;
-var corsOptions = {
-    origin: "*"
-};
+var corsOptions = {origin: "*"};
 app.use(cors(corsOptions));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-app.get('/', (req, res) => {
-    res.json({ message: "Welcome to RPS Online." });
+app.get("/", (req, res)=>{
+    res.json({ message: "Welcome to the Manage Account API."});
 });
 
 require("./app/routes/file.routes.js")(app);

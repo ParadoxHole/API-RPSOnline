@@ -1,12 +1,12 @@
 {
     "version": 2,
-    "name": "manage_account_api",
+    "name": "api-rps-online",
     "builds": [{
-        "src": "server.js",
-        "use": "@vercel/node" 
+        "src": "server.js", 
+        "use": "@vercel/node"
     }],
     "routes": [{
         "src": "/(.*)",
-        "dest": "/server.js" 
+        "dest": "/server.js"
     }]
 }
