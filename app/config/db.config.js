@@ -1,6 +1,10 @@
-module.exports = {
-    HOST: "localhost",
+module.exports ={
+    // HOST: "localhost",
+    // USER: "root",
+    // PASSWORD: "",
+    // DB: "myapi"
+    HOST: "sql",
     USER: "root",
-    PASSWRD: "",
+    PASSWRD: "tsq9a29tn95gim3ar91c",
     DB: "rpsonline"
 };
