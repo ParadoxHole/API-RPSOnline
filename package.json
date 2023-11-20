@@ -1,13 +1,14 @@
 {
   "name": "manage_account",
   "version": "1.0.0",
-  "description": "This is manage account API.",
-  "main": "server.js",
+  "description": "this is to manage account",
+  "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "start": "node server.js"
   },
-  "author": "Amonrat P.",
+  "author": "",
   "license": "ISC",
   "dependencies": {
     "bcryptjs": "^2.4.3",
