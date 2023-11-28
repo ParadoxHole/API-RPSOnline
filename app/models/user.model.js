@@ -28,6 +28,61 @@ User.checkUsername = (username, result) => {
     });
 };
 
+User.getUserById = (id, result) => {
+    sql.query("SELECT * FROM player WHERE id = ?", id, (err, res) => {
+        if (err) {
+            console.log("error: ", err);
+            result(err, null);
+            return;
+        }
+        if (res.length) {
+            sql.query("SELECT * FROM rankbrackets WHERE minRating <= ? AND maxRating >= ?", [res[0].rating, res[0].rating], (err, res2) => {
+                if (err) {
+                    console.log("error: ", err);
+                    result(err, null);
+                    return;
+                }
+                if (res2.length) {
+                    res[0].rank = res2[0].rankName;
+                    res[0].rankDesc = res2[0].description;
+                    sql.query(
+                        "SELECT " +
+                          "(SELECT COUNT(*) FROM matchmakinghistory WHERE (playerOneId = ? AND result = 'P1Win') OR (playerTwoId = ? AND result = 'P2Win')) AS matches_won, " +
+                          "(SELECT COUNT(*) FROM matchmakinghistory WHERE (playerOneId = ? AND result = 'P2Win') OR (playerTwoId = ? AND result = 'P1Win')) AS matches_lost, " +
+                          "(SELECT COUNT(*) FROM matchmakinghistory WHERE (playerOneId = ? OR playerTwoId = ?) AND result = 'Draw') AS draws;",
+                        [id, id, id, id, id, id],
+                        (err, res3) => {
+                          if (err) {
+                            console.log("error: ", err);
+                            result(err, null);
+                            return;
+                          }
+                          // Combine the results and send the final response
+                          const finalResult = {
+                            user: res[0],
+                            matchStats: {
+                              matches_won: res3[0].matches_won,
+                              matches_lost: res3[0].matches_lost,
+                              draws: res3[0].draws,
+                            },
+                          };
+                          console.log("found user: ", finalResult);
+                          result(null, finalResult);
+                          return;
+                        }
+                      );                      
+                } else {
+                    result({kind: "not_found"}, null);
+                    return;
+                }
+            });
+        } else {
+            result({kind: "not_found"}, null);
+            return;
+        }
+    });
+};
+
 User.create = (newUser, result)=>{
     sql.query("INSERT INTO player SET ?", newUser , (err, res)=>{
         if(err){

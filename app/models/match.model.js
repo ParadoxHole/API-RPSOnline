@@ -99,7 +99,6 @@ Match.prototype.finish = function (playerOneId, playerTwoId, result) {
     );
 
     const updateRating = (winnerId, loserId) => {
-        console.log("winnerId: ", winnerId, "loserId: ", loserId);
         sql.query('UPDATE player SET rating = rating + 1 WHERE id = ?', [winnerId], (errWinner, resWinner) => {
             if (errWinner) {
                 console.log('Error updating winner rating: ', errWinner);
@@ -242,20 +241,53 @@ Match.joinMatch = (playerId, result) => {
 }});
 };
 
-Match.checkPlayer = (playerId, result) => {
-    sql.query("SELECT * FROM activegame WHERE (playerOneId = ? OR playerTwoId = ?) AND (playerOneId IS NOT NULL AND playerTwoId IS NOT NULL)", 
-    [playerId, playerId], (err, res) => {
-        if (err) {
-            result(err, null);
-            return;
+Match.leaveMatch = (playerId, result) => {
+    sql.query(
+        'SELECT ID FROM activegame WHERE (playerOneId = ? OR PlayerTwoId = ?)',
+        [playerId, playerId],
+        (checkErr, checkRes) => {
+            if (checkErr) {
+                result(checkErr, null);
+            return;}
+            if (checkRes.length === 0) {
+                // The playerId is not in an active match
+                result("Player is not in an active match", null);
+            } else {
+                // The playerId is in an active match, remove them from the match
+                const matchId = checkRes[0].ID;
+                const updateQuery = `DELETE FROM activegame WHERE ID = ?`;
+        
+                sql.query(updateQuery, [matchId], (updateErr, updateRes) => {
+                    if (updateErr) {
+                        result(updateErr, null);
+                        return;
+                    }
+        
+                    result(null, updateRes);
+                });
+            }
         }
+    );
+};
 
-        if (res.length === 0) {
-            result(null, false);
-        } else {
-            result(null, true);
+Match.checkPlayer = (playerId, result) => {
+    sql.query(
+        "SELECT * FROM activegame WHERE (playerOneId = ? OR playerTwoId = ?) AND (playerOneId IS NOT NULL AND playerTwoId IS NOT NULL)",
+        [playerId, playerId],
+        (err, res) => {
+            if (err) {
+                result(err, null);
+                return;
+            }
+            if (res.length > 0) {
+                // Include match data and set "waiting" to false
+                result(null, { matchData: res[0], waiting: false });
+            } else {
+                // No match found, set "waiting" to true
+                result(null, { waiting: true });
+            }
         }
-    });
+    );
 };
 
 Match.makeMove = (playerId, move, result) => {
@@ -272,121 +304,124 @@ Match.makeMove = (playerId, move, result) => {
             }
 
             const match = res[0];
-            const updateField = match.playerOneId == playerId ? 'PlayerOneChoice' : 'PlayerTwoChoice';
-            const updateQuery = `UPDATE activegame SET ${updateField} = ? WHERE (playerOneId = ? OR playerTwoId = ?)`;
 
- 
-            sql.query(updateQuery, [move, playerId, playerId], (updateErr, updateRes) => {
-                if (updateErr) {
-                    return result(updateErr, null);
-                }
+            if (!match.ID) {
+                return result(new Error('Match ID is null.'), null);
+            }
 
-                let output = "waiting";
-                const matchId = match.ID;
+            // Check if the match is full
+            if (match.playerOneId === null || match.playerTwoId === null) {
+                return result(new Error('Match is not full.'), null);
+            }
 
-                sql.query('SELECT * FROM activegame WHERE ID = ?', [matchId], (err, res) => {
-                    if (err) {
-                        return result(err, null);
+            // Player hasn't made a move yet
+            const output = "waiting";
+
+            // Check if the player has already made a move
+            if (
+                (match.playerOneId === playerId && match.PlayerOneChoice !== null) ||
+                (match.playerTwoId === playerId && match.PlayerTwoChoice !== null)
+            ) {
+                // Player has already made a move
+                // No need to update the choice, just check for game completion
+                checkGameCompletion(match, result, match.ID);
+            } else {
+                // Player hasn't made a move yet
+                const updateField = match.playerOneId == playerId ? 'PlayerOneChoice' : 'PlayerTwoChoice';
+
+                const updateQuery = `UPDATE activegame SET ${updateField} = ? WHERE (playerOneId = ? OR playerTwoId = ?) AND ${updateField} IS NULL`;
+
+                sql.query(updateQuery, [move, playerId, playerId], (updateErr, updateRes) => {
+                    if (updateErr) {
+                        return result(updateErr, null);
                     }
 
-                    if (res.length === 0) {
-                        return result(new Error('Match not found.'), null);
-                    }
-
-                    const updatedMatch = res[0];
-                    const playerOneChoice = updatedMatch.PlayerOneChoice;
-                    const playerTwoChoice = updatedMatch.PlayerTwoChoice;
-                    const playerOneId = updatedMatch.playerOneId;
-                    const playerTwoId = updatedMatch.playerTwoId;
-
-                    if (playerOneChoice === null || playerTwoChoice === null) {
-                        return result(null, 'Both players have not made a move yet.');
-                    }
-
-                    let PlayerOneScore = updatedMatch.PlayerOneScore;
-                    let PlayerTwoScore = updatedMatch.PlayerTwoScore;
-
-                    if (playerOneChoice === playerTwoChoice) {
-                        output = "tie";
-                    }
-                    if (playerOneChoice === 'Rock') {
-                        if (playerTwoChoice === 'Paper') {
-                            PlayerTwoScore++;
-                            output = "P2Win";
-                        } else if (playerTwoChoice === 'Scissors') {
-                            PlayerOneScore++;
-                            output = "P1Win";
-                        }
-                    } else if (playerOneChoice === 'Paper') {
-                        if (playerTwoChoice === 'Rock') {
-                            PlayerOneScore++;
-                            output = "P1Win";
-                        } else if (playerTwoChoice === 'Scissors') {
-                            PlayerTwoScore++;
-                            output = "P2Win";
-                        }
-                    } else if (playerOneChoice === 'Scissors') {
-                        if (playerTwoChoice === 'Rock') {
-                            PlayerTwoScore++;
-                            output = "P2Win";
-                        } else if (playerTwoChoice === 'Paper') {
-                            PlayerOneScore++;
-                            output = "P1Win";
-                        }
-                    }
-
-                    function sleep(ms) {
-                        return new Promise(resolve => setTimeout(resolve, ms));
-                      }
-                      
-                    console.log('Hello');
-                    sleep(2000).then(() => { 
-                    sql.query("UPDATE activegame SET PlayerOneScore = ?, PlayerTwoScore = ? WHERE ID = ?", 
-                        [PlayerOneScore, PlayerTwoScore, matchId], 
-                        (updateErr, updateRes) => {
-                            if (updateErr) {
-                                return result(updateErr, null);
-                            }
-
-                            console.log("playerOneId: ", playerOneId, "playerTwoId: ", playerTwoId);
-
-                            if (PlayerOneScore >= 3) {
-                                Match.prototype.finish(playerOneId, playerTwoId, "P1Win");
-                                // remove the match from the active game table and add it to the match history table
-                                sql.query("DELETE FROM activegame WHERE ID = ?", [matchId], (deleteErr, deleteRes) => {
-                                    if (deleteErr) {
-                                        return result(deleteErr, null);
-                                    }
-                                    return result(null, playerOneId, playerTwoId, "P1Win");
-                                });
-                            } else if (PlayerTwoScore >= 3) {
-                                Match.prototype.finish(playerOneId, playerTwoId, "P2Win");
-                                sql.query("DELETE FROM activegame WHERE ID = ?", [matchId], (deleteErr, deleteRes) => {
-                                    if (deleteErr) {
-                                        return result(deleteErr, null);
-                                    }
-                                    return result(null, playerOneId, playerTwoId, "P2Win");
-                                });
-                            } else {
-                                sql.query("UPDATE activegame SET playerOneChoice = null, playerTwoChoice = null WHERE ID = ?", [matchId], (err, res) => {
-                                    if (err) {
-                                        return result(err, null);
-                                    }
-                                    sql.query("SELECT * FROM activegame WHERE ID = ?", [match.ID], (err, res) => {
-                                        info = {...res[0], output};
-                                        result(null,info);
-                                    });
-                                });
-                            }
-                        }
-                    );
-                }); 
-            });
-        }); 
+                    // Check for game completion after updating the choice
+                    checkGameCompletion(match, result, match.ID);
+                });
+            }
         }
     );
 };
 
+// Function to check for game completion
+function checkGameCompletion(match, result, matchId) {
+    //const matchId = match.ID;
+    const playerOneChoice = match.PlayerOneChoice;
+    const playerTwoChoice = match.PlayerTwoChoice;
+    const playerOneId = match.playerOneId;
+    const playerTwoId = match.playerTwoId;
 
+    // Check if both players have made a move
+    if (playerOneChoice !== null && playerTwoChoice !== null) {
+        let PlayerOneScore = match.PlayerOneScore;
+        let PlayerTwoScore = match.PlayerTwoScore;
+        let output = "waiting";
+
+        // Game logic for determining the winner
+        if (playerOneChoice === playerTwoChoice) {
+            output = "tie";
+        }
+        if (playerOneChoice == 'Rock') {
+            if (playerTwoChoice == 'Paper') {
+                PlayerTwoScore++;
+                output = "P2Win";
+            } else if (playerTwoChoice == 'Scissors') {
+                PlayerOneScore++;
+                output = "P1Win";
+            }
+        } else if (playerOneChoice == 'Paper') {
+            if (playerTwoChoice == 'Rock') {
+                PlayerOneScore++;
+                output = "P1Win";
+            } else if (playerTwoChoice == 'Scissors') {
+                PlayerTwoScore++;
+                output = "P2Win";
+            }
+        } else if (playerOneChoice == 'Scissors') {
+            if (playerTwoChoice == 'Rock') {
+                PlayerTwoScore++;
+                output = "P2Win";
+            } else if (playerTwoChoice == 'Paper') {
+                PlayerOneScore++;
+                output = "P1Win";
+            }
+        }
+
+
+        // Check if the game is completed
+        if (PlayerOneScore >= 3 || PlayerTwoScore >= 3) {
+            // Call the finish function
+            const winner = PlayerOneScore >= 3 ? playerOneId : playerTwoId;
+            const resultType = PlayerOneScore >= 3 ? "P1Win" : "P2Win";
+
+            Match.prototype.finish(playerOneId, playerTwoId, resultType);
+
+            // Delete the match from the active game table
+            sql.query("DELETE FROM activegame WHERE ID = ?", [matchId], (deleteErr, deleteRes) => {
+                if (deleteErr) {
+                    return result(deleteErr, null);
+                }
+                return result(null, {playerOneId, playerTwoId, resultType});
+            });
+        } else {
+
+            sql.query("UPDATE activegame SET PlayerOneChoice = null, PlayerTwoChoice = null, PreviousPOChoice = ?, PreviousPTChoice = ?, PlayerOneScore = ?, PlayerTwoScore = ? WHERE ID = ?", [playerOneChoice, playerTwoChoice, PlayerOneScore, PlayerTwoScore,matchId], (err, res) => {
+                if (err) {
+                    return result(err, null);
+                }
+
+                // Get the updated match information
+                sql.query("SELECT * FROM activegame WHERE ID = ?", [match.ID], (err, res) => {
+                    const info = { ...res[0], output };
+                    result(null, info);
+                });
+            });
+        }
+    } else {
+        // Players have not made a move yet
+        return result(null, 'Both players have not made a move yet.');
+    }
+}
 
 module.exports = Match;

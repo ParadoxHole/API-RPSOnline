@@ -14,6 +14,8 @@ module.exports = (app) => {
 
     //join a match
     router.post("/join/:playerId", matchController.joinMatch);
+    //leave a match
+    router.delete("/leave/:playerId", matchController.leaveMatch);
     //check if a match is full
     router.get("/checkPlayer/:playerId", matchController.checkPlayer);
 

@@ -16,6 +16,20 @@ const validUsername = (req, res) => {
     });
 };
 
+const getUserById = (req, res) => {
+    User.getUserById(req.params.id, (err, data) => {
+        if (err) {
+            if (err.kind === "not_found") {
+                res.status(200).send({ message: `Not found user ${req.params.id}.` });
+            } else {
+                res.status(500).send({ message: "Error retrieving user " + req.params.id });
+            }
+        } else {
+            res.send(data);
+        }
+    });
+};    
+
 const createNewUser = (req, res) => {
     // Validate request
     if (!req.body) {
@@ -156,6 +170,7 @@ const subtractRating = (req, res) => {
 
 module.exports = { 
     validUsername, 
+    getUserById,
     createNewUser, 
     login, 
     getAllUsers, 

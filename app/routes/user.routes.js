@@ -16,7 +16,7 @@ module.exports = (app) => {
     router.post("/rating/sub/:id/:value", authJwt, user_controller.subtractRating);
 
     //get user by id
-    //router.get("/get/:id", authJwt, user_controller.getUserById);
+    router.get("/get/:id", authJwt, user_controller.getUserById);
     //get user by username
     //router.get("/get/username/:username", authJwt, user_controller.getUserByUsername);
     //get user totalGamePlayed

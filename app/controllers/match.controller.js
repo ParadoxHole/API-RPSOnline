@@ -53,7 +53,13 @@ const checkPlayer = (req, res) => {
                 message: err.message || "Error checking if player is in a match.",
             });
         } else {
-            res.status(200).send({data});
+            if (data) {
+                res.status(200).send({ data });
+            } else {
+                res.status(404).send({
+                    message: "Player not found in any match.",
+                });
+            }
         }
     });
 };
@@ -62,7 +68,11 @@ const joinMatch = (req, res) => {
     const playerId = req.params.playerId;
 
     Match.joinMatch(playerId, (err, data) => {
-        if (err) {
+        if (err === "Player is already in an active match") {
+            res.status(400).send({
+                message: "Player is already in a match.",
+            });
+        } else if (err) {
             res.status(500).send({
                 message: err.message || "Error joining match.",
             });
@@ -71,6 +81,20 @@ const joinMatch = (req, res) => {
         }
     });
 };
+
+const leaveMatch = (req, res) => {
+    const playerId = req.params.playerId;
+
+    Match.leaveMatch(playerId, (err, data) => {
+        if (err) {
+            res.status(500).send({
+                message: err.message || "Error leaving match.",
+            });
+        } else {
+            res.status(200).send({data});
+        }
+    });
+}
 
 const makeMove = (req, res) => {
     const playerId = req.body.playerId;
@@ -93,5 +117,6 @@ module.exports = {
     checkMatches,
     checkPlayer,
     joinMatch,
+    leaveMatch,
     makeMove,
 };

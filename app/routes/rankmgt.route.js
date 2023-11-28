@@ -18,5 +18,5 @@ module.exports = (app) => {
     // Delete a rank by rankName
     router.delete("/:rankName", rankManagementController.deleteRank);
 
-    app.use("/api/rankmgt", router);
+    app.use("/api/rank", router);
 };
