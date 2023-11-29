@@ -117,18 +117,43 @@ Match.prototype.finish = function (playerOneId, playerTwoId, result) {
 
 Match.getMatchHistoryByPlayerId = (playerId, result) => {
     sql.query(
-        'SELECT * FROM matchmakinghistory WHERE playerOneId = ? OR playerTwoId = ?',
-        [playerId, playerId],
+        `SELECT
+            CASE
+                WHEN mh.playerOneId = ? THEN p1.userName
+                WHEN mh.playerTwoId = ? THEN p2.userName
+            END AS mainPlayer,
+            CASE
+                WHEN mh.playerOneId = ? THEN p2.userName
+                WHEN mh.playerTwoId = ? THEN p1.userName
+            END AS opponent,
+            CASE
+                WHEN (mh.playerOneId = ? AND mh.result = 'P1Win') OR (mh.playerTwoId = ? AND mh.result = 'P2Win') THEN 'Won'
+                WHEN (mh.playerOneId = ? AND mh.result = 'P2Win') OR (mh.playerTwoId = ? AND mh.result = 'P1Win') THEN 'Lost'
+                WHEN (mh.playerOneId = ? OR mh.playerTwoId = ?) AND mh.result = 'Draw' THEN 'Draw'
+            END AS result,
+            mh.startTime
+        FROM
+            matchmakinghistory mh
+        JOIN
+            player p1 ON mh.playerOneId = p1.id
+        JOIN
+            player p2 ON mh.playerTwoId = p2.id
+        WHERE
+            (mh.playerOneId = ? OR mh.playerTwoId = ?)
+            AND (mh.result = 'P1Win' OR mh.result = 'P2Win' OR mh.result = 'Draw')
+        ORDER BY
+            mh.startTime DESC`,
+        [playerId, playerId, playerId, playerId, playerId, playerId, playerId, playerId, playerId, playerId,playerId, playerId],
         (err, res) => {
             if (err) {
                 result(err, null);
                 return;
             }
-
             result(null, res);
         }
     );
 }
+
 
 Match.getMatchHistoryBetweenPlayers = (playerOneId, playerTwoId, result) => {
     sql.query(
